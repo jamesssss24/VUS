@@ -1,0 +1,14 @@
+{
+  "name": "VUS",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "forwardPorts": [6080],
+  "postStartCommand": "bash .devcontainer/start-desktop.sh",
+  "portsAttributes": {
+    "6080": {
+      "label": "Desktop (noVNC)",
+      "onAutoForward": "openBrowser"
+    }
+  }
+}
