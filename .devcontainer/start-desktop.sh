@@ -1,6 +1,65 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ -f /etc/os-release ]]; then
+  . /etc/os-release
+fi
+
+case "${ID:-}" in
+  ubuntu|debian)
+    ;;
+  *)
+    echo "Unsupported container image: ${PRETTY_NAME:-unknown}. Rebuild this workspace inside the Ubuntu dev container configured in .devcontainer/devcontainer.json." >&2
+    exit 1
+    ;;
+esac
+
+system_bus_socket="/run/dbus/system_bus_socket"
+
+run_root() {
+  if command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    "$@"
+  fi
+}
+
+dbus_cmd() {
+  if command -v dbus-send >/dev/null 2>&1; then
+    dbus-send --system --type=method_call --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.ListNames
+  fi
+}
+
+system_bus_is_running() {
+  [[ -S "$system_bus_socket" ]] \
+    && dbus_cmd >/dev/null 2>&1
+}
+
+if command -v dbus-daemon >/dev/null 2>&1; then
+  if ! system_bus_is_running; then
+    run_root rm -f "$system_bus_socket" /run/dbus/pid 2>/dev/null || true
+    if getent passwd messagebus >/dev/null 2>&1; then
+      run_root install -d -o messagebus -g messagebus /run/dbus
+    else
+      run_root install -d -m 755 /run/dbus
+    fi
+    run_root dbus-daemon --system --fork
+  fi
+else
+  echo "D-Bus is not installed in this container. Rebuild the dev container with the Ubuntu desktop image." >&2
+  exit 1
+fi
+
+for attempt in {1..10}; do
+  system_bus_is_running && break
+  sleep 1
+done
+
+if ! system_bus_is_running; then
+  echo "D-Bus system bus is not responding at $system_bus_socket" >&2
+  exit 1
+fi
+
 vnc_dir="$HOME/.vnc"
 mkdir -p "$vnc_dir"
 
@@ -26,6 +85,11 @@ if [[ -f "$display_lock" ]]; then
   fi
 fi
 
+if ! command -v tigervncserver >/dev/null 2>&1; then
+  echo "TigerVNC is not installed. Rebuild the dev container from the Ubuntu-based desktop image." >&2
+  exit 1
+fi
+
 if ! pgrep -f '[X]tigervnc.*:1' >/dev/null; then
   tigervncserver :1 \
     -geometry 1600x900 \
@@ -37,9 +101,51 @@ if ! pgrep -f '[X]tigervnc.*:1' >/dev/null; then
     -xstartup "$vnc_dir/xstartup"
 fi
 
-if ! pgrep -f '[n]ovnc_proxy.*6080' >/dev/null; then
-  nohup /usr/share/novnc/utils/novnc_proxy \
-    --listen 6080 \
-    --vnc localhost:5901 \
-    > "$HOME/.novnc.log" 2>&1 &
+if [[ -x /usr/share/novnc/utils/novnc_proxy ]]; then
+  if ! pgrep -f '[n]ovnc_proxy.*6080' >/dev/null; then
+    nohup /usr/share/novnc/utils/novnc_proxy \
+      --listen 6080 \
+      --vnc localhost:5901 \
+      > "$HOME/.novnc.log" 2>&1 &
+  fi
+else
+  echo "noVNC is not installed. Rebuild the container with the desktop stack installed." >&2
+  exit 1
 fi
+
+proxy_host="184.170.249.65"
+proxy_port="4145"
+proxy_url="socks5h://${proxy_host}:${proxy_port}"
+mkdir -p "$HOME/.config/environment.d" "$HOME/.local/share/applications"
+cat > "$HOME/.config/environment.d/vus-proxy.conf" <<EOF
+http_proxy=${proxy_url}
+https_proxy=${proxy_url}
+HTTP_PROXY=${proxy_url}
+HTTPS_PROXY=${proxy_url}
+NO_PROXY=localhost,127.0.0.1,::1
+MOZ_DISABLE_CONTENT_SANDBOX=1
+MOZ_DISABLE_GMP_SANDBOX=1
+EOF
+
+cat > "$HOME/.local/share/applications/vus-firefox.desktop" <<EOF
+[Desktop Entry]
+Name=VUS Firefox (Proxy)
+Comment=Firefox configured for the trusted SOCKS5 proxy
+Exec=env MOZ_DISABLE_CONTENT_SANDBOX=1 MOZ_DISABLE_GMP_SANDBOX=1 /usr/local/bin/firefox --new-instance --no-remote --proxy-server=${proxy_url} --ignore-certificate-errors %u
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+StartupNotify=true
+EOF
+chmod +x "$HOME/.local/share/applications/vus-firefox.desktop"
+
+for attempt in {1..30}; do
+  if curl --fail --silent http://127.0.0.1:6080/vnc.html >/dev/null; then
+    exit 0
+  fi
+  sleep 1
+done
+
+cat "$HOME/.novnc.log" >&2
+echo "noVNC did not become ready on port 6080" >&2
+exit 1
