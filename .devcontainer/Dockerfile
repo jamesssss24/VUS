@@ -2,7 +2,13 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update \
+RUN dpkg --add-architecture i386 \
+    && if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
+        sed -i '/^Components:/ { /multiverse/! s/$/ multiverse/; }' /etc/apt/sources.list.d/ubuntu.sources; \
+    elif [ -f /etc/apt/sources.list ]; then \
+        sed -i '/^deb / { /multiverse/! s/$/ multiverse/; }' /etc/apt/sources.list; \
+    fi \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
@@ -11,6 +17,7 @@ RUN apt-get update \
         libasound2t64 \
         fonts-dejavu-core \
         novnc \
+        steam-installer \
         tigervnc-standalone-server \
         tigervnc-tools \
         xfce4 \
