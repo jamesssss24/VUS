@@ -17,12 +17,12 @@ RUN dpkg --add-architecture i386 \
         libasound2t64 \
         fonts-dejavu-core \
         novnc \
-        steam-installer \
         tigervnc-standalone-server \
         tigervnc-tools \
         xfce4 \
         xfce4-goodies \
         wget \
+    && apt-get install -y --install-recommends steam-installer \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /opt/firefox \
     && curl -fsSL "https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US" -o /tmp/firefox.tar.xz \

@@ -90,6 +90,14 @@ if ! command -v tigervncserver >/dev/null 2>&1; then
   exit 1
 fi
 
+vnc_backend_is_running() {
+  timeout 2 bash -c '
+    exec 3<>/dev/tcp/127.0.0.1/5901
+    IFS= read -r -N 12 banner <&3
+    [[ "$banner" == RFB* ]]
+  ' >/dev/null 2>&1
+}
+
 if ! pgrep -f '[X]tigervnc.*:1' >/dev/null; then
   tigervncserver :1 \
     -geometry 1600x900 \
@@ -140,12 +148,18 @@ EOF
 chmod +x "$HOME/.local/share/applications/vus-firefox.desktop"
 
 for attempt in {1..30}; do
-  if curl --fail --silent http://127.0.0.1:6080/vnc.html >/dev/null; then
+  if curl --fail --silent http://127.0.0.1:6080/vnc.html >/dev/null \
+    && vnc_backend_is_running; then
     exit 0
   fi
   sleep 1
 done
 
-cat "$HOME/.novnc.log" >&2
-echo "noVNC did not become ready on port 6080" >&2
+for log in "$vnc_dir"/*.log "$HOME/.novnc.log"; do
+  if [[ -f "$log" ]]; then
+    printf '%s\n' "--- $log ---" >&2
+    tail -n 80 "$log" >&2
+  fi
+done
+echo "The noVNC page or TigerVNC backend did not become ready" >&2
 exit 1

@@ -3,6 +3,11 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
+  // Steam and GTK's glycin sandbox need namespace operations blocked by Docker's defaults.
+  "runArgs": [
+    "--security-opt=seccomp=unconfined",
+    "--security-opt=apparmor=unconfined"
+  ],
   "forwardPorts": [6080],
   "postStartCommand": "bash .devcontainer/start-desktop.sh",
   "portsAttributes": {
