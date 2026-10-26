@@ -5,8 +5,13 @@
   },
   // Steam and GTK's glycin sandbox need namespace operations blocked by Docker's defaults.
   "runArgs": [
+    "--shm-size=1g",
     "--security-opt=seccomp=unconfined",
-    "--security-opt=apparmor=unconfined"
+    "--security-opt=apparmor=unconfined",
+    // To enable a Linux host's integrated GPU, add:
+    // "--device=/dev/dri",
+    // "--group-add=video",
+    // "--group-add=109"
   ],
   "forwardPorts": [6080],
   "postStartCommand": "bash .devcontainer/start-desktop.sh",

@@ -109,6 +109,20 @@ if ! pgrep -f '[X]tigervnc.*:1' >/dev/null; then
     -xstartup "$vnc_dir/xstartup"
 fi
 
+compositor_configured=false
+for attempt in {1..30}; do
+  if DISPLAY=:1 xfconf-query -c xfwm4 -p /general/use_compositing -s false >/dev/null 2>&1; then
+    compositor_configured=true
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$compositor_configured" != true ]]; then
+  echo "Could not disable XFCE compositing for the TigerVNC desktop" >&2
+  exit 1
+fi
+
 if [[ -x /usr/share/novnc/utils/novnc_proxy ]]; then
   if ! pgrep -f '[n]ovnc_proxy.*6080' >/dev/null; then
     nohup /usr/share/novnc/utils/novnc_proxy \
