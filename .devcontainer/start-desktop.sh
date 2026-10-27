@@ -5,6 +5,8 @@ if [[ -f /etc/os-release ]]; then
   . /etc/os-release
 fi
 
+workspace_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
 case "${ID:-}" in
   ubuntu|debian)
     ;;
@@ -109,6 +111,20 @@ if ! pgrep -f '[X]tigervnc.*:1' >/dev/null; then
     -xstartup "$vnc_dir/xstartup"
 fi
 
+compositor_configured=false
+for attempt in {1..30}; do
+  if DISPLAY=:1 xfconf-query -c xfwm4 -p /general/use_compositing -s false >/dev/null 2>&1; then
+    compositor_configured=true
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$compositor_configured" != true ]]; then
+  echo "Could not disable XFCE compositing for the TigerVNC desktop" >&2
+  exit 1
+fi
+
 if [[ -x /usr/share/novnc/utils/novnc_proxy ]]; then
   if ! pgrep -f '[n]ovnc_proxy.*6080' >/dev/null; then
     nohup /usr/share/novnc/utils/novnc_proxy \
@@ -118,6 +134,49 @@ if [[ -x /usr/share/novnc/utils/novnc_proxy ]]; then
   fi
 else
   echo "noVNC is not installed. Rebuild the container with the desktop stack installed." >&2
+  exit 1
+fi
+
+transfer_dir="$HOME/iPad-Transfers"
+if mountpoint -q /mnt/device-storage; then
+  transfer_dir="/mnt/device-storage/iPad-Transfers"
+fi
+if ! mkdir -p "$transfer_dir"; then
+  echo "Could not create the iPad transfer directory: $transfer_dir" >&2
+  exit 1
+fi
+if [[ ! -w "$transfer_dir" ]]; then
+  echo "The iPad transfer directory is not writable: $transfer_dir" >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "Python 3 is required for the iPad file-transfer page." >&2
+  exit 1
+fi
+
+if ! curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then
+  nohup python3 "$workspace_dir/.devcontainer/ipad-transfer.py" \
+    --directory "$transfer_dir" \
+    --port 8080 \
+    > "$HOME/.ipad-transfer.log" 2>&1 &
+fi
+
+transfer_ready=false
+for attempt in {1..10}; do
+  if curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then
+    transfer_ready=true
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$transfer_ready" != true ]]; then
+  if [[ -f "$HOME/.ipad-transfer.log" ]]; then
+    printf '%s\n' "--- $HOME/.ipad-transfer.log ---" >&2
+    tail -n 80 "$HOME/.ipad-transfer.log" >&2
+  fi
+  echo "The iPad file-transfer page did not become ready on port 8080" >&2
   exit 1
 fi
 

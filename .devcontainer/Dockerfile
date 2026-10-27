@@ -16,6 +16,10 @@ RUN dpkg --add-architecture i386 \
         dbus-x11 \
         libasound2t64 \
         fonts-dejavu-core \
+        libgl1-mesa-dri \
+        libgl1-mesa-dri:i386 \
+        mesa-vulkan-drivers \
+        mesa-vulkan-drivers:i386 \
         novnc \
         tigervnc-standalone-server \
         tigervnc-tools \
