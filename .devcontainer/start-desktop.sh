@@ -62,6 +62,30 @@ if ! system_bus_is_running; then
   exit 1
 fi
 
+if ! command -v pulseaudio >/dev/null 2>&1 || ! command -v pactl >/dev/null 2>&1; then
+  echo "PulseAudio is not installed. Rebuild the dev container with the desktop audio packages." >&2
+  exit 1
+fi
+
+if ! pulseaudio --check >/dev/null 2>&1; then
+  pulseaudio --start --exit-idle-time=-1
+fi
+
+if ! pactl list short sinks | awk '$2 == "browser_audio" { found = 1 } END { exit !found }'; then
+  pactl load-module module-null-sink sink_name=browser_audio sink_properties=device.description=Browser_Audio >/dev/null
+fi
+pactl set-default-sink browser_audio
+
+if ! command -v ffmpeg >/dev/null 2>&1; then
+  echo "FFmpeg is not installed. Rebuild the dev container with the desktop audio packages." >&2
+  exit 1
+fi
+
+if ! pgrep -f '[s]tream-desktop-audio.sh' >/dev/null; then
+  nohup bash "$workspace_dir/.devcontainer/stream-desktop-audio.sh" \
+    > "$HOME/.desktop-audio.log" 2>&1 &
+fi
+
 vnc_dir="$HOME/.vnc"
 mkdir -p "$vnc_dir"
 

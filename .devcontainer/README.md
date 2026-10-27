@@ -4,6 +4,12 @@ The desktop includes Mesa OpenGL and Vulkan drivers for both 64-bit applications
 
 This passthrough is optional so the dev container still builds on hosts without a GPU. It cannot provide hardware acceleration when the host or its container runtime does not expose `/dev/dri` (including hosted environments without GPU passthrough).
 
+## Desktop audio in a browser
+
+After rebuilding with **Dev Containers: Rebuild Container**, the desktop routes application audio to a PulseAudio sink and exposes it as an MP3 stream on the private forwarded port **6081**. In the VS Code **Ports** view, open **Desktop Audio** in a browser and add `/audio.mp3` to the forwarded URL. Browser playback may require pressing Play. This is a separate audio stream; TigerVNC/noVNC does not carry audio in the desktop page itself.
+
+Audio playback requires a browser that can reach the VS Code forwarded port. The stream is private and should not be made public.
+
 ## Optional host storage
 
 To use storage from the host in the desktop, first mount the drive on the host and make sure the host user can access its directory. Set the host environment variable `VUS_STORAGE_PATH` to that directory (for example, `export VUS_STORAGE_PATH=/media/$USER/my-drive` in the shell that launches VS Code), then uncomment the `mounts` block in `devcontainer.json` and rebuild the container. If VS Code is already open, restart it from the shell with the variable set. The directory will be available inside the container at `/mnt/device-storage`; files written there use the host drive's capacity and persist outside the container.

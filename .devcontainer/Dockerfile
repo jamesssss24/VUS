@@ -15,12 +15,16 @@ RUN dpkg --add-architecture i386 \
         dbus \
         dbus-x11 \
         libasound2t64 \
+        libasound2-plugins \
+        ffmpeg \
         fonts-dejavu-core \
         libgl1-mesa-dri \
         libgl1-mesa-dri:i386 \
         mesa-vulkan-drivers \
         mesa-vulkan-drivers:i386 \
         novnc \
+        pulseaudio \
+        pulseaudio-utils \
         tigervnc-standalone-server \
         tigervnc-tools \
         xfce4 \
