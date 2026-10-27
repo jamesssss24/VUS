@@ -204,25 +204,18 @@ if [[ "$transfer_ready" != true ]]; then
   exit 1
 fi
 
-proxy_host="184.170.249.65"
-proxy_port="4145"
-proxy_url="socks5h://${proxy_host}:${proxy_port}"
-mkdir -p "$HOME/.config/environment.d" "$HOME/.local/share/applications"
-cat > "$HOME/.config/environment.d/vus-proxy.conf" <<EOF
-http_proxy=${proxy_url}
-https_proxy=${proxy_url}
-HTTP_PROXY=${proxy_url}
-HTTPS_PROXY=${proxy_url}
-NO_PROXY=localhost,127.0.0.1,::1
-MOZ_DISABLE_CONTENT_SANDBOX=1
-MOZ_DISABLE_GMP_SANDBOX=1
-EOF
+mkdir -p "$HOME/.local/share/applications"
+rm -f "$HOME/.config/environment.d/vus-proxy.conf"
+if command -v systemctl >/dev/null 2>&1 \
+  && systemctl --user show-environment >/dev/null 2>&1; then
+  systemctl --user unset-environment http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+fi
 
 cat > "$HOME/.local/share/applications/vus-firefox.desktop" <<EOF
 [Desktop Entry]
-Name=VUS Firefox (Proxy)
-Comment=Firefox configured for the trusted SOCKS5 proxy
-Exec=env MOZ_DISABLE_CONTENT_SANDBOX=1 MOZ_DISABLE_GMP_SANDBOX=1 /usr/local/bin/firefox --new-instance --no-remote --proxy-server=${proxy_url} --ignore-certificate-errors %u
+Name=VUS Firefox (Direct)
+Comment=Firefox using the desktop's direct internet connection
+Exec=env MOZ_DISABLE_CONTENT_SANDBOX=1 MOZ_DISABLE_GMP_SANDBOX=1 /usr/local/bin/firefox --new-instance --no-remote %u
 Terminal=false
 Type=Application
 Categories=Network;WebBrowser;
