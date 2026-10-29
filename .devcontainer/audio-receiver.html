@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0d14">
+  <title>PulseLink Audio Receiver</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0a0d14;
+      color: #e2e8f0;
+      font-synthesis: none;
+      --panel: #121824;
+      --border: #253044;
+      --muted: #94a3b8;
+      --cyan: #22d3ee;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; min-height: 100vh; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+    header { position: sticky; top: 0; z-index: 2; background: #0a0d14ed; border-bottom: 1px solid #1e293b; backdrop-filter: blur(12px); }
+    .topbar { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; color: #071116; font-size: 22px; font-weight: 800; background: linear-gradient(135deg, #22d3ee, #a855f7); }
+    h1 { margin: 0; color: #fff; font-size: 17px; }
+    .subtitle { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .status { display: inline-flex; align-items: center; gap: 8px; padding: 7px 11px; border: 1px solid #334155; border-radius: 999px; background: #1e293b66; color: var(--muted); font-size: 12px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; }
+    .status[data-state="connecting"] { border-color: #f59e0b66; color: #fbbf24; }
+    .status[data-state="connecting"] .status-dot { background: #fbbf24; animation: pulse 1s infinite; }
+    .status[data-state="connected"] { border-color: #22d3ee66; color: #67e8f9; }
+    .status[data-state="connected"] .status-dot { background: #22d3ee; box-shadow: 0 0 12px #22d3ee; }
+    @keyframes pulse { 50% { opacity: .35; } }
+    main { padding: 28px 0 36px; }
+    .tabs { display: flex; gap: 24px; border-bottom: 1px solid #1e293b; margin-bottom: 24px; }
+    .tab { padding: 0 2px 12px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font-size: 13px; }
+    .tab[aria-selected="true"] { border-color: var(--cyan); color: var(--cyan); }
+    .dashboard { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 22px; }
+    .column { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+    .card { position: relative; overflow: hidden; padding: 22px; border: 1px solid var(--border); border-radius: 18px; background: var(--panel); box-shadow: 0 16px 40px #0003; }
+    .card h2, .card h3 { margin: 0; color: #f8fafc; }
+    .card h2 { font-size: 16px; }
+    .card h3 { font-size: 13px; }
+    .visualizer-head, .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .eyebrow { color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; }
+    .modes { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: 9px; background: #080c13; }
+    .mode { padding: 6px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 11px; }
+    .mode[aria-pressed="true"] { background: #263345; color: var(--cyan); }
+    .canvas-wrap { position: relative; height: 250px; margin: 18px 0; overflow: hidden; border: 1px solid #1e293b; border-radius: 12px; background: radial-gradient(ellipse at center, #101c2a, #080c13 72%); }
+    canvas { display: block; width: 100%; height: 100%; }
+    .overlay { position: absolute; inset: 0; display: grid; place-content: center; gap: 8px; text-align: center; background: #080c1399; color: var(--muted); font-size: 13px; }
+    .overlay[hidden] { display: none; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 0 18px; padding: 12px 4px; border: 1px solid #1e293b; border-radius: 11px; background: #080c1366; text-align: center; }
+    .stats dt { color: #64748b; font: 10px ui-monospace, monospace; text-transform: uppercase; }
+    .stats dd { margin: 5px 0 0; color: #e2e8f0; font: 13px ui-monospace, monospace; }
+    .stats div:nth-child(2) dd { color: var(--cyan); }
+    .controls { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 16px; border-top: 1px solid #1e293b; }
+    .actions { display: flex; align-items: center; gap: 10px; }
+    .primary, .icon-button, .secondary, .preset, .copy { border: 1px solid transparent; border-radius: 10px; transition: background .15s, border-color .15s; }
+    .primary { padding: 11px 16px; background: linear-gradient(110deg, #22d3ee, #0891b2); color: #03151b; font-weight: 700; }
+    .primary:hover { background: #67e8f9; }
+    .icon-button { width: 42px; height: 42px; border-color: #334155; background: #1e293b; color: #e2e8f0; }
+    .icon-button:hover, .secondary:hover, .preset:hover, .copy:hover { border-color: #22d3ee88; }
+    .volume { display: flex; align-items: center; gap: 9px; width: min(220px, 42%); color: var(--muted); font-size: 12px; }
+    .volume input { min-width: 0; width: 100%; accent-color: var(--cyan); }
+    label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 12px; }
+    select, input[type="url"], input[type="text"] { width: 100%; padding: 10px 11px; border: 1px solid #334155; border-radius: 9px; outline: none; background: #080c13; color: #e2e8f0; font-size: 12px; }
+    select:focus, input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px #22d3ee22; }
+    .field { margin-top: 16px; }
+    .help, .info, .guide p { color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .help { margin: 6px 0 0; font-size: 11px; }
+    .secondary { width: 100%; margin-top: 16px; padding: 10px; border-color: #22d3ee55; background: #1e293b; color: #a5f3fc; font-size: 12px; font-weight: 600; }
+    .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 17px; padding-top: 15px; border-top: 1px solid #253044; }
+    .presets-title { grid-column: 1 / -1; margin: 0 0 2px; color: var(--muted); font-size: 11px; }
+    .preset { padding: 10px; border-color: #253044; background: #080c13; color: #e2e8f0; text-align: left; }
+    .preset strong, .preset span { display: block; }
+    .preset strong { font-size: 11px; }
+    .preset span { margin-top: 4px; color: var(--muted); font: 10px ui-monospace, monospace; }
+    .logs { height: 150px; overflow: auto; margin: 12px 0 0; padding: 11px; border: 1px solid #1e293b; border-radius: 10px; background: #080c13; color: #94a3b8; font: 11px/1.7 ui-monospace, monospace; overflow-wrap: anywhere; }
+    .log-time { color: #64748b; }
+    .info { padding: 14px; border: 1px solid #155e7566; border-radius: 12px; background: #08334433; }
+    .info strong { color: #a5f3fc; }
+    .guide { display: none; max-width: 900px; margin: 0 auto; }
+    .guide.active { display: block; }
+    .guide h2 { margin: 0 0 8px; color: #fff; font-size: 22px; }
+    .guide section { margin-top: 20px; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
+    .guide pre { overflow-x: auto; margin: 10px 0 0; padding: 12px; border-radius: 8px; background: #080c13; color: #a7f3d0; font: 11px/1.6 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .copy { padding: 6px 9px; border-color: #334155; background: #1e293b; color: #cbd5e1; font-size: 11px; }
+    footer { padding: 16px; border-top: 1px solid #1e293b; color: #64748b; font-size: 11px; text-align: center; }
+    .toast { position: fixed; right: 18px; bottom: 18px; z-index: 4; max-width: min(380px, calc(100% - 36px)); padding: 12px 15px; transform: translateY(18px); opacity: 0; border: 1px solid #22d3ee66; border-radius: 10px; background: #111827; color: #a5f3fc; font-size: 12px; pointer-events: none; transition: .2s; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    @media (max-width: 760px) {
+      .dashboard { grid-template-columns: 1fr; }
+      .controls { align-items: stretch; flex-direction: column; }
+      .actions { width: 100%; }
+      .primary { flex: 1; }
+      .volume { width: 100%; }
+      .canvas-wrap { height: 210px; }
+    }
+    @media (max-width: 420px) {
+      .shell { width: min(100% - 22px, 1120px); }
+      .topbar { min-height: 60px; }
+      .status { padding: 6px 8px; font-size: 10px; }
+      .card { padding: 16px; }
+      .modes { gap: 0; }
+      .mode { padding: 6px; }
+      .stats dt { font-size: 9px; }
+      .stats dd { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="shell topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">~</div>
+        <div><h1>PulseLink <span style="color:#67e8f9;font-size:11px">Audio Receiver</span></h1><p class="subtitle">Private desktop audio stream</p></div>
+      </div>
+      <div id="status" class="status" data-state="disconnected" role="status" aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span><span id="status-text">Disconnected</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <nav class="tabs" aria-label="Receiver sections">
+      <button class="tab" id="dashboard-tab" type="button" aria-selected="true">Receiver Dashboard</button>
+      <button class="tab" id="guide-tab" type="button" aria-selected="false">Streaming Setup Guide</button>
+    </nav>
+
+    <section id="dashboard" class="dashboard" aria-labelledby="dashboard-tab">
+      <div class="column">
+        <article class="card">
+          <div class="visualizer-head">
+            <span class="eyebrow">Stream Visualizer</span>
+            <div class="modes" role="group" aria-label="Visualizer mode">
+              <button class="mode" type="button" data-mode="bars" aria-pressed="true">Bars</button>
+              <button class="mode" type="button" data-mode="wave" aria-pressed="false">Wave</button>
+              <button class="mode" type="button" data-mode="circle" aria-pressed="false">Circle</button>
+            </div>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="visualizer" aria-label="Audio visualization"></canvas>
+            <div id="overlay" class="overlay"><span>Start the receiver to listen</span></div>
+          </div>
+          <dl class="stats">
+            <div><dt>Audio Latency</dt><dd id="latency">-- ms</dd></div>
+            <div><dt>Peak Signal</dt><dd id="peak">-- %</dd></div>
+            <div><dt>Format</dt><dd id="format">MP3 stream</dd></div>
+          </dl>
+          <div class="controls">
+            <div class="actions">
+              <button id="toggle-play" class="primary" type="button">Start Receiver</button>
+              <button id="toggle-mute" class="icon-button" type="button" aria-label="Mute audio" aria-pressed="false">Sound</button>
+            </div>
+            <label class="volume"><span>Volume</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume"><output id="volume-value">80%</output></label>
+          </div>
+        </article>
+        <div class="info"><strong>How it works:</strong> The receiver plays audio from your desktop or any HTTP audio endpoint supported by your browser. The desktop stream is served privately through this page.</div>
+      </div>
+
+      <aside class="column">
+        <section class="card">
+          <h2>Stream Target</h2>
+          <div class="field">
+            <label for="stream-type">Stream mode</label>
+            <select id="stream-type">
+              <option value="desktop">This desktop audio</option>
+              <option value="http">HTTP audio stream</option>
+              <option value="icecast">Icecast / Shoutcast</option>
+              <option value="demo">Synthetic test tone</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="stream-url">Stream URL</label>
+            <input id="stream-url" type="url" autocomplete="url" spellcheck="false">
+            <p class="help">Use an HTTP(S) MP3, Ogg, or WAV endpoint. Remote streams may require CORS permission to visualize.</p>
+          </div>
+          <button id="apply-stream" class="secondary" type="button">Save &amp; Reconnect</button>
+          <div class="presets">
+            <p class="presets-title">Preset stream endpoints</p>
+            <button class="preset" type="button" data-preset="http"><strong>FFmpeg HTTP</strong><span>Port 8080 /stream</span></button>
+            <button class="preset" type="button" data-preset="icecast"><strong>Icecast</strong><span>Port 8000 /stream.mp3</span></button>
+          </div>
+        </section>
+        <section class="card">
+          <div class="row"><h3>Connection log</h3><button id="clear-log" class="copy" type="button">Clear</button></div>
+          <div id="logs" class="logs" role="log" aria-live="polite" aria-relevant="additions"></div>
+        </section>
+      </aside>
+    </section>
+
+    <section id="guide" class="guide" aria-labelledby="guide-tab">
+      <h2>On-demand streaming quickstart</h2>
+      <p>To stream desktop audio from a Linux sender, run one of these commands on that machine. Permit the sender port through your firewall only on networks you trust.</p>
+      <section>
+        <div class="row"><h3>FFmpeg HTTP (MP3)</h3><button class="copy" type="button" data-copy="ffmpeg-command">Copy</button></div>
+        <p>Capture the default PulseAudio or PipeWire source and listen on port 8080.</p>
+        <pre id="ffmpeg-command">ffmpeg -f pulse -i default -c:a libmp3lame -b:a 128k -content_type audio/mpeg -f mp3 -listen 1 http://0.0.0.0:8080/stream</pre>
+      </section>
+      <section>
+        <div class="row"><h3>VLC HTTP stream</h3><button class="copy" type="button" data-copy="vlc-command">Copy</button></div>
+        <p>Use VLC to encode the default PulseAudio source as an MP3 stream.</p>
+        <pre id="vlc-command">cvlc pulse://default --sout '#transcode{vcodec=none,acodec=mp3,ab=128,channels=2,samplerate=44100}:http{mux=mp3,dst=:8080/stream}'</pre>
+      </section>
+      <section>
+        <h3>Connect to the sender</h3>
+        <p>Choose HTTP audio or Icecast in the dashboard and enter the sender's reachable address, for example <code>http://192.168.1.100:8080/stream</code>. Browser playback of remote streams depends on network access; visual analysis also requires the sender to allow cross-origin access.</p>
+      </section>
+    </section>
+  </main>
+
+  <audio id="audio" preload="none"></audio>
+  <footer>PulseLink Audio Receiver · Private forwarded port · Web Audio API</footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      const audioElement = $("audio");
+      const canvas = $("visualizer");
+      const context = canvas.getContext("2d");
+      const status = $("status");
+      const streamType = $("stream-type");
+      const streamUrl = $("stream-url");
+      let audioContext;
+      let analyser;
+      let sourceNode;
+      let oscillator;
+      let lfo;
+      let synthGain;
+      let isPlaying = false;
+      let isMuted = false;
+      let visualizerMode = "bars";
+      let animationFrame;
+      let toastTimer;
+
+      function log(message) {
+        const row = document.createElement("div");
+        const time = document.createElement("span");
+        time.className = "log-time";
+        time.textContent = `[${new Date().toLocaleTimeString()}] `;
+        row.append(time, document.createTextNode(message));
+        $("logs").append(row);
+        while ($("logs").childElementCount > 80) $("logs").firstElementChild.remove();
+        $("logs").scrollTop = $("logs").scrollHeight;
+      }
+
+      function toast(message) {
+        const element = $("toast");
+        element.textContent = message;
+        element.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => element.classList.remove("show"), 2800);
+      }
+
+      function setStatus(state, message) {
+        status.dataset.state = state;
+        $("status-text").textContent = message;
+      }
+
+      function resizeCanvas() {
+        const bounds = canvas.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.max(1, Math.round(bounds.width * ratio));
+        canvas.height = Math.max(1, Math.round(bounds.height * ratio));
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+
+      function setPlaying(active) {
+        isPlaying = active;
+        $("toggle-play").textContent = active ? "Stop Receiver" : "Start Receiver";
+        $("overlay").hidden = active;
+        if (!active) {
+          cancelAnimationFrame(animationFrame);
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          $("peak").textContent = "-- %";
+        }
+      }
+
+      async function ensureAudioContext() {
+        if (!audioContext) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContext) throw new Error("Web Audio is not supported by this browser");
+          audioContext = new AudioContext();
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 512;
+          analyser.connect(audioContext.destination);
+        }
+        if (audioContext.state === "suspended") await audioContext.resume();
+      }
+
+      function releaseAudioElement() {
+        audioElement.pause();
+        audioElement.removeAttribute("src");
+        audioElement.load();
+        if (sourceNode) {
+          sourceNode.disconnect();
+          sourceNode = null;
+        }
+      }
+
+      function stopStream(message = "Receiver stopped.") {
+        setPlaying(false);
+        releaseAudioElement();
+        if (oscillator) {
+          oscillator.stop();
+          oscillator.disconnect();
+          oscillator = null;
+        }
+        if (lfo) {
+          lfo.stop();
+          lfo.disconnect();
+          lfo = null;
+        }
+        if (synthGain) {
+          synthGain.disconnect();
+          synthGain = null;
+        }
+        setStatus("disconnected", "Disconnected");
+        log(message);
+      }
+
+      function saveConfiguration() {
+        localStorage.setItem("pulselink.streamType", streamType.value);
+        localStorage.setItem("pulselink.streamUrl", streamUrl.value);
+      }
+
+      async function startStream() {
+        if (isPlaying) stopStream();
+        const type = streamType.value;
+        let url = streamUrl.value.trim();
+        if (type !== "demo") {
+          if (!url) {
+            toast("Enter a stream URL first.");
+            streamUrl.focus();
+            return;
+          }
+          try {
+            const parsed = new URL(url, window.location.href);
+            if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Use an HTTP or HTTPS stream URL");
+            url = parsed.href;
+          } catch (error) {
+            toast(error.message || "Enter a valid HTTP(S) stream URL.");
+            streamUrl.focus();
+            return;
+          }
+        }
+
+        setStatus("connecting", "Connecting...");
+        log(type === "demo" ? "Starting the synthetic test tone." : `Connecting to ${url}`);
+        $("format").textContent = type === "demo" ? "Synthetic tone" : "Audio stream";
+
+        try {
+          if (type === "demo") {
+            await ensureAudioContext();
+            releaseAudioElement();
+            oscillator = audioContext.createOscillator();
+            lfo = audioContext.createOscillator();
+            synthGain = audioContext.createGain();
+            oscillator.type = "sine";
+            oscillator.frequency.value = 220;
+            lfo.frequency.value = 0.5;
+            lfo.connect(oscillator.frequency);
+            oscillator.connect(synthGain);
+            synthGain.connect(analyser);
+            synthGain.gain.value = Number($("volume").value) * (isMuted ? 0 : 0.3);
+            lfo.start();
+            oscillator.start();
+            setPlaying(true);
+            setStatus("connected", "Demo tone active");
+            startVisualizer();
+            return;
+          }
+
+          releaseAudioElement();
+          const target = new URL(url);
+          const canAnalyze = target.origin === window.location.origin;
+          audioElement.volume = Number($("volume").value);
+          audioElement.muted = isMuted;
+          if (canAnalyze) {
+            await ensureAudioContext();
+            sourceNode = audioContext.createMediaElementSource(audioElement);
+            sourceNode.connect(analyser);
+          } else {
+            $("peak").textContent = "Unavailable";
+            log("Remote stream playback does not require CORS; visualization is disabled for this origin.");
+          }
+          audioElement.src = url;
+          audioElement.load();
+          await audioElement.play();
+          setPlaying(true);
+          setStatus("connected", "Live stream active");
+          log("Audio stream connected.");
+          if (canAnalyze) startVisualizer();
+          saveConfiguration();
+        } catch (error) {
+          releaseAudioElement();
+          setPlaying(false);
+          setStatus("disconnected", "Stream unavailable");
+          log(`Connection failed: ${error.message || "Playback was blocked"}`);
+          toast("Could not start the stream. Check the URL and try again.");
+        }
+      }
+
+      function startVisualizer() {
+        if (!analyser) return;
+        resizeCanvas();
+        const frequency = new Uint8Array(analyser.frequencyBinCount);
+        const waveform = new Uint8Array(analyser.fftSize);
+        function render() {
+          if (!isPlaying) return;
+          animationFrame = requestAnimationFrame(render);
+          const width = canvas.clientWidth;
+          const height = canvas.clientHeight;
+          context.clearRect(0, 0, width, height);
+          analyser.getByteFrequencyData(frequency);
+          const peak = Math.max(...frequency);
+          $("peak").textContent = `${Math.round(peak / 255 * 100)} %`;
+          $("latency").textContent = `${Math.round((audioContext.baseLatency || 0) * 1000)} ms`;
+          context.lineWidth = 2;
+          context.strokeStyle = "#22d3ee";
+          context.fillStyle = "#22d3ee";
+
+          if (visualizerMode === "bars") {
+            const count = 48;
+            const gap = 3;
+            const barWidth = Math.max(1, (width - gap * (count - 1)) / count);
+            for (let index = 0; index < count; index++) {
+              const value = frequency[Math.floor(index * frequency.length / count)] / 255;
+              const barHeight = Math.max(2, value * height * 0.82);
+              context.globalAlpha = 0.45 + value * 0.55;
+              context.fillRect(index * (barWidth + gap), (height - barHeight) / 2, barWidth, barHeight);
+            }
+            context.globalAlpha = 1;
+          } else if (visualizerMode === "wave") {
+            analyser.getByteTimeDomainData(waveform);
+            context.beginPath();
+            waveform.forEach((value, index) => {
+              const x = index / (waveform.length - 1) * width;
+              const y = value / 255 * height;
+              if (index === 0) context.moveTo(x, y);
+              else context.lineTo(x, y);
+            });
+            context.stroke();
+          } else {
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = Math.max(10, Math.min(centerX, centerY) * 0.55);
+            context.beginPath();
+            context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            context.strokeStyle = "#334155";
+            context.stroke();
+            context.strokeStyle = "#22d3ee";
+            for (let index = 0; index < frequency.length; index += 3) {
+              const angle = index / frequency.length * Math.PI * 2;
+              const length = frequency[index] / 255 * Math.min(42, radius * 0.55);
+              context.beginPath();
+              context.moveTo(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
+              context.lineTo(centerX + Math.cos(angle) * (radius + length), centerY + Math.sin(angle) * (radius + length));
+              context.stroke();
+            }
+          }
+        }
+        render();
+      }
+
+      function updateSourceType() {
+        const host = window.location.hostname || "127.0.0.1";
+        const defaults = {
+          desktop: `${window.location.origin}/audio.mp3`,
+          http: `http://${host}:8080/stream`,
+          icecast: `http://${host}:8000/stream.mp3`,
+          demo: ""
+        };
+        streamUrl.disabled = streamType.value === "demo";
+        streamUrl.value = defaults[streamType.value];
+        $("format").textContent = streamType.value === "demo" ? "Synthetic tone" : "Audio stream";
+      }
+
+      $("dashboard-tab").addEventListener("click", () => {
+        $("dashboard-tab").setAttribute("aria-selected", "true");
+        $("guide-tab").setAttribute("aria-selected", "false");
+        $("dashboard").hidden = false;
+        $("guide").classList.remove("active");
+        resizeCanvas();
+      });
+      $("guide-tab").addEventListener("click", () => {
+        $("dashboard-tab").setAttribute("aria-selected", "false");
+        $("guide-tab").setAttribute("aria-selected", "true");
+        $("dashboard").hidden = true;
+        $("guide").classList.add("active");
+      });
+      $("toggle-play").addEventListener("click", () => isPlaying ? stopStream() : startStream());
+      $("apply-stream").addEventListener("click", () => {
+        saveConfiguration();
+        startStream();
+      });
+      $("toggle-mute").addEventListener("click", () => {
+        isMuted = !isMuted;
+        audioElement.muted = isMuted;
+        if (synthGain) synthGain.gain.value = Number($("volume").value) * (isMuted ? 0 : 0.3);
+        $("toggle-mute").textContent = isMuted ? "Muted" : "Sound";
+        $("toggle-mute").setAttribute("aria-pressed", String(isMuted));
+        $("toggle-mute").setAttribute("aria-label", isMuted ? "Unmute audio" : "Mute audio");
+      });
+      $("volume").addEventListener("input", (event) => {
+        const value = Number(event.currentTarget.value);
+        $("volume-value").value = `${Math.round(value * 100)}%`;
+        audioElement.volume = value;
+        if (synthGain) synthGain.gain.value = value * (isMuted ? 0 : 0.3);
+        if (isMuted && value > 0) {
+          isMuted = false;
+          audioElement.muted = false;
+          $("toggle-mute").textContent = "Sound";
+          $("toggle-mute").setAttribute("aria-pressed", "false");
+          $("toggle-mute").setAttribute("aria-label", "Mute audio");
+        }
+      });
+      streamType.addEventListener("change", updateSourceType);
+      $("clear-log").addEventListener("click", () => { $("logs").replaceChildren(); });
+      document.querySelectorAll("[data-mode]").forEach((button) => {
+        button.addEventListener("click", () => {
+          visualizerMode = button.dataset.mode;
+          document.querySelectorAll("[data-mode]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+        });
+      });
+      document.querySelectorAll("[data-preset]").forEach((button) => {
+        button.addEventListener("click", () => {
+          streamType.value = button.dataset.preset;
+          updateSourceType();
+          toast("Stream preset selected.");
+        });
+      });
+      document.querySelectorAll("[data-copy]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText($(button.dataset.copy).textContent);
+            toast("Command copied to clipboard.");
+          } catch (error) {
+            log(`Could not copy command: ${error.message || "Clipboard permission denied"}`);
+            toast("Clipboard permission denied. Select and copy the command.");
+          }
+        });
+      });
+      audioElement.addEventListener("error", () => {
+        if (!isPlaying) return;
+        stopStream("The stream ended or could not be decoded.");
+        setStatus("disconnected", "Stream error");
+      });
+      audioElement.addEventListener("ended", () => {
+        if (!isPlaying) return;
+        stopStream("The stream ended.");
+      });
+      window.addEventListener("resize", resizeCanvas);
+
+      const savedType = localStorage.getItem("pulselink.streamType");
+      const savedUrl = localStorage.getItem("pulselink.streamUrl");
+      if (savedType && ["desktop", "http", "icecast", "demo"].includes(savedType)) streamType.value = savedType;
+      updateSourceType();
+      if (savedUrl && streamType.value !== "desktop" && streamType.value !== "demo") streamUrl.value = savedUrl;
+      resizeCanvas();
+      $("latency").textContent = "-- ms";
+      log("Receiver ready. Choose a stream source and start playback.");
+    })();
+  </script>
+</body>
+</html>

@@ -12,7 +12,7 @@ while true; do
     -f mp3 \
     -content_type audio/mpeg \
     -listen 1 \
-    http://0.0.0.0:6081/audio.mp3; then
+    http://127.0.0.1:6081/audio.mp3; then
     echo "The browser audio client disconnected; restarting the stream listener."
   else
     status=$?

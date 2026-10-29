@@ -17,14 +17,14 @@
   // "mounts": [
   //   "source=${localEnv:VUS_STORAGE_PATH},target=/mnt/device-storage,type=bind"
   // ],
-  "forwardPorts": [6080, 6081, 8080],
+  "forwardPorts": [6080, 6082, 8080],
   "postStartCommand": "bash .devcontainer/start-desktop.sh",
   "portsAttributes": {
     "6080": {
       "label": "Desktop (noVNC)",
       "onAutoForward": "openBrowser"
     },
-    "6081": {
+    "6082": {
       "label": "Desktop Audio",
       "onAutoForward": "notify",
       "visibility": "private"
