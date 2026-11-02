@@ -10,7 +10,7 @@ The desktop Firefox launcher uses the container's direct internet connection. It
 
 ## Desktop audio in a browser
 
-After rebuilding with **Dev Containers: Rebuild Container**, the desktop routes application audio to a PulseAudio sink and exposes it through the **Desktop Audio** receiver on private forwarded port **6082**. In the VS Code **Ports** view, open **Desktop Audio** in a browser and press **Start Receiver**. The receiver page also supports HTTP audio URLs, Icecast/Shoutcast URLs, volume and mute controls, a visualizer, and a synthetic test tone. This is a separate audio stream; TigerVNC/noVNC does not carry audio in the desktop page itself.
+After rebuilding with **Dev Containers: Rebuild Container**, the desktop routes application audio to a PulseAudio sink and exposes it through the **Desktop Audio** receiver on private forwarded port **6082**. In the VS Code **Ports** view, open **Desktop Audio** in a browser and press **Start Receiver**. The replacement receiver defaults to this desktop's audio and also supports external HTTP and Icecast/Shoutcast streams, volume and mute controls, a visualizer, and a synthetic test tone. External sender ports (such as 8085) are separate from the receiver page's forwarded port, which remains **6082**; the browser must be able to reach external stream addresses directly. This is a separate audio stream; TigerVNC/noVNC does not carry audio in the desktop page itself.
 
 Audio playback requires a browser that can reach the VS Code forwarded port. The receiver and stream are private and should not be made public. Remote custom streams can play without CORS support, but browser security may prevent the visualizer from analyzing them.
 
