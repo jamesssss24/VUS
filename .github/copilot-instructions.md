@@ -1,32 +1,72 @@
-# Copilot instructions: Linux desktop environment
+# Copilot instructions for VUS
 
-Keep repository guidance focused on the Linux desktop environment configured in `.devcontainer/`; the repository's other applications and launcher content are outside this scope.
+## Project snapshot
 
-## Build, test, and lint
+This repository is primarily a VS Code development container environment for a Linux desktop session, not a conventional application repo. The active project configuration lives in `.devcontainer/`, especially:
 
-The desktop environment is built as a VS Code Dev Container from `.devcontainer/Dockerfile`. It enables Ubuntu's multiverse repository and the `i386` architecture to install Steam and its 32-bit runtime dependencies. There are no repository-defined test or lint suites.
+- `.devcontainer/devcontainer.json` defines the container, forwarded ports, and startup commands
+- `.devcontainer/Dockerfile` builds the desktop environment
+- `.devcontainer/start-vnc.sh` and `.devcontainer/start-desktop.sh` start the headless desktop and noVNC browser access
+- `.devcontainer/audio-receiver.*` and `.devcontainer/stream-desktop-audio.sh` handle desktop audio forwarding
+- `.devcontainer/ipad-transfer.py` provides the iPad file-transfer page
 
-- Build or rebuild the environment using VS Code's **Dev Containers: Rebuild Container** command.
-- The container starts the desktop automatically through `postStartCommand` in `.devcontainer/devcontainer.json`.
-- Check the startup script's shell syntax with:
+The root-level HTML and app-like folders appear to be historical artifacts or examples, not the canonical project structure. Treat `.devcontainer/` as the main system of interest unless a task explicitly names another directory.
 
-  ```bash
-  bash -n .devcontainer/start-desktop.sh
-  ```
+## Build, test, and lint commands
 
-- To exercise startup and readiness, run the script inside the configured Ubuntu-based container:
+There is no application build/test/lint pipeline for a normal project at the repo root.
 
-  ```bash
-  bash .devcontainer/start-desktop.sh
-  ```
+- No repo-wide Node/Python/Rust package manifest or test runner was found.
+- The container is built and started through the Dev Containers workflow, not through a package script.
 
-  Success means the script exits with status 0 after noVNC responds at `http://127.0.0.1:6080/vnc.html` and TigerVNC accepts connections on `127.0.0.1:5901`. There are no individual automated test cases to select.
+Primary operations for this environment are:
 
-## Architecture and conventions
+```bash
+cd /workspaces/VUS
+# then use VS Code: "Dev Containers: Rebuild Container"
+# or re-open in the container if already running
+```
 
-- `.devcontainer/devcontainer.json` is the entry point: it builds the image, forwards port `6080`, and runs the desktop startup script after container start. Its seccomp and AppArmor settings allow Steam and GTK's Glycin image-loader sandbox to create namespaces. DRI passthrough is opt-in: on a Linux host that exposes `/dev/dri`, add the commented device and group arguments to enable integrated graphics. Group ID `109` is the common Ubuntu render group; use the host's render-device GID if it differs. Optional host storage is a bind mount configured through `VUS_STORAGE_PATH`; keep it opt-in and document that the drive must be mounted on the host. Keep the forwarded port and the script's noVNC listener in sync.
-- `.devcontainer/Dockerfile` installs the Ubuntu desktop stack (XFCE, TigerVNC, noVNC, and D-Bus), Steam with its distro-managed dependencies, Mesa OpenGL/Vulkan drivers for both 64-bit and Steam's 32-bit runtime, and Firefox. It enables the `i386` architecture and multiverse repository for Steam; keep those settings if changing Steam packages. Add or change system dependencies here rather than relying on undocumented packages already present in a running container.
-- `.devcontainer/start-desktop.sh` is an idempotent startup/setup script. It validates the OS, starts and verifies the system D-Bus, configures the VNC session to launch XFCE, starts TigerVNC on display `:1`, and starts the noVNC proxy. Preserve its fail-fast behavior and explicit diagnostics when changing startup steps.
-- The startup script also writes per-user browser and environment configuration. Keep related settings consistent between those generated files; avoid duplicating configuration in unrelated files.
-- The desktop container is expected to run on Ubuntu or Debian. If changing the base image, update the OS check and verify package names and startup behavior for that image.
-- The desktop is accessed through noVNC on forwarded port `6080`; VNC itself listens locally in the container. Keep VNC bound to localhost unless the network exposure is being deliberately redesigned.
+If you need to inspect or validate the desktop environment manually:
+
+```bash
+cd /workspaces/VUS/.devcontainer
+bash start-vnc.sh
+```
+
+Then use the forwarded browser ports from VS Code (`6080` for noVNC desktop, `6082` for Desktop Audio, `8080` for iPad File Transfer).
+
+## High-level architecture
+
+- `.devcontainer/devcontainer.json` is the main entry point: it configures the Docker build, environment variables, forwarded ports, and the `postStartCommand` that launches the virtual desktop.
+- The container uses Mesa llvmpipe/lavapipe software rendering so GUI apps can run without a host GPU.
+- `start-vnc.sh` boots the desktop stack and exposes it through a browser-accessible VNC/noVNC endpoint.
+- `audio-receiver.py` and `stream-desktop-audio.sh` route system audio through a private browser receiver, separate from the main desktop page.
+- `ipad-transfer.py` serves a private file-transfer web page for moving files to/from the dev environment.
+- The repo root contains a variety of unrelated HTML artifacts; do not assume they are part of the same current project.
+
+## Key conventions and repository-specific patterns
+
+- Treat `.devcontainer/` as the real operational project unless the user clearly points to some other folder.
+- Do not add standard web-framework conventions or package tooling unless the task is explicitly about a specific app artifact in the repo root.
+- Preserve the devcontainer workflow: changes that affect the desktop environment should be made in `.devcontainer/` and validated through the container/browser UI rather than by inventing a local build system.
+- Be careful with port-sensitive features: `6080`, `6082`, and `8080` are intentionally exposed and labeled in `devcontainer.json`.
+- If a change affects audio, graphics, or file transfer, validate through the forwarded browser endpoints, not by assuming a normal local app workflow.
+- Root-level HTML files should be treated as disconnected artifacts unless a task explicitly says otherwise.
+
+## Practical guidance for future sessions
+
+- Start by checking `.devcontainer/` if the issue is about desktop setup, environment, ports, graphics, or audio.
+- Avoid repo-wide assumptions about a web app architecture when the actual system is a containerized desktop environment.
+- Prefer small, targeted edits in the relevant devcontainer script or config file over broad refactors.
+
+## Files to read first
+
+- `.devcontainer/devcontainer.json` for environment and port configuration
+- `.devcontainer/README.md` for container behavior and usage notes
+- `.devcontainer/Dockerfile` when troubleshooting the desktop image
+- the exact script or config file named by the task
+
+## Notes for future Copilot sessions
+
+This workspace is a desktop-in-a-container environment, and the repo is best understood as a collection of devcontainer tooling plus miscellaneous artifacts. Default to container-specific fixes and avoid assuming a conventional app build/test pipeline.

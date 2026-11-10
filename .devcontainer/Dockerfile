@@ -2,6 +2,7 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# 1. Install prerequisites and Mesa graphics libraries
 RUN dpkg --add-architecture i386 \
     && if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
         sed -i '/^Components:/ { /multiverse/! s/$/ multiverse/; }' /etc/apt/sources.list.d/ubuntu.sources; \
@@ -14,25 +15,47 @@ RUN dpkg --add-architecture i386 \
         curl \
         dbus \
         dbus-x11 \
-        libasound2t64 \
-        libasound2-plugins \
         ffmpeg \
         fonts-dejavu-core \
+        gnupg \
+        libasound2t64 \
+        libasound2-plugins \
         libgl1-mesa-dri \
         libgl1-mesa-dri:i386 \
+        libglx-mesa0 \
+        libglx-mesa0:i386 \
+        mesa-utils \
         mesa-vulkan-drivers \
         mesa-vulkan-drivers:i386 \
         novnc \
         pulseaudio \
         pulseaudio-utils \
-        tigervnc-standalone-server \
-        tigervnc-tools \
+        software-properties-common \
+        websockify \
+        wget \
+        x11-utils \
+        xfonts-base \
         xfce4 \
         xfce4-goodies \
-        wget \
+    # 2. Download and install TurboVNC v3.1.1 directly from GitHub Releases
+    && wget -q https://github.com/TurboVNC/turbovnc/releases/download/3.1.1/turbovnc_3.1.1_amd64.deb -O /tmp/turbovnc.deb \
+    && apt-get install -y /tmp/turbovnc.deb \
+    && rm -f /tmp/turbovnc.deb \
+    # 3. Download and install VirtualGL v3.1.5 directly from GitHub Releases
+    && wget -q https://github.com/VirtualGL/virtualgl/releases/download/3.1.5/virtualgl_3.1.5_amd64.deb -O /tmp/virtualgl.deb \
+    && apt-get install -y /tmp/virtualgl.deb \
+    && rm -f /tmp/virtualgl.deb \
+    && vglrun --version \
+    # 4. Install Firefox via Official Mozilla Repository
+    && install -d -m 0755 /etc/apt/keyrings \
+    && wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null \
+    && echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | tee /etc/apt/sources.list.d/mozilla.list > /dev/null \
+    && printf '%s\n' 'Package: *' 'Pin: origin packages.mozilla.org' 'Pin-Priority: 1000' > /etc/apt/preferences.d/mozilla \
+    && apt-get update \
+    && apt-get install -y --allow-downgrades --no-install-recommends firefox \
+    && firefox --version \
     && apt-get install -y --install-recommends steam-installer \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /opt/firefox \
-    && curl -fsSL "https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US" -o /tmp/firefox.tar.xz \
-    && tar -xJf /tmp/firefox.tar.xz -C /opt/firefox --strip-components=1 \
-    && ln -sf /opt/firefox/firefox /usr/local/bin/firefox
+    && rm -rf /var/lib/apt/lists/*
+
+# Add VirtualGL and TurboVNC to global PATH
+ENV PATH="/opt/VirtualGL/bin:/opt/TurboVNC/bin:${PATH}"

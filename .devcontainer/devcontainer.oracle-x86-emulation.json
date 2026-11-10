@@ -1,0 +1,39 @@
+{
+  "name": "VUS (x86 emulation on ARM)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "options": ["--platform=linux/amd64"]
+  },
+  "runArgs": [
+    "--platform=linux/amd64",
+    "--shm-size=2g",
+    "--cap-add=SYS_ADMIN",
+    "--security-opt=seccomp=unconfined",
+    "--security-opt=apparmor=unconfined"
+  ],
+  "containerEnv": {
+    "DISPLAY": ":1",
+    "LIBGL_ALWAYS_SOFTWARE": "1",
+    "GALLIUM_DRIVER": "llvmpipe"
+  },
+  "forwardPorts": [6080, 6082, 8080],
+  "postStartCommand": "bash .devcontainer/start-vnc.sh",
+  "portsAttributes": {
+    "6080": {
+      "label": "Desktop (noVNC)",
+      "onAutoForward": "openBrowser",
+      "visibility": "private"
+    },
+    "6082": {
+      "label": "Desktop Audio",
+      "onAutoForward": "notify",
+      "visibility": "private"
+    },
+    "8080": {
+      "label": "iPad File Transfer",
+      "onAutoForward": "notify",
+      "visibility": "private"
+    }
+  }
+}

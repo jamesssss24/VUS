@@ -1,28 +1,27 @@
 {
   "name": "VUS",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "context": ".."
   },
-  // Steam and GTK's glycin sandbox need namespace operations blocked by Docker's defaults.
   "runArgs": [
-    "--shm-size=1g",
+    "--shm-size=2g",
+    "--cap-add=SYS_ADMIN",
     "--security-opt=seccomp=unconfined",
-    "--security-opt=apparmor=unconfined",
-    // To enable a Linux host's integrated GPU, add:
-    // "--device=/dev/dri",
-    // "--group-add=video",
-    // "--group-add=109"
+    "--security-opt=apparmor=unconfined"
   ],
-  // To expose host-mounted storage, set VUS_STORAGE_PATH on the host and uncomment:
-  // "mounts": [
-  //   "source=${localEnv:VUS_STORAGE_PATH},target=/mnt/device-storage,type=bind"
-  // ],
+  "containerEnv": {
+    "DISPLAY": ":1",
+    "LIBGL_ALWAYS_SOFTWARE": "1",
+    "GALLIUM_DRIVER": "llvmpipe"
+  },
   "forwardPorts": [6080, 6082, 8080],
-  "postStartCommand": "bash .devcontainer/start-desktop.sh",
+  "postStartCommand": "bash .devcontainer/start-vnc.sh",
   "portsAttributes": {
     "6080": {
       "label": "Desktop (noVNC)",
-      "onAutoForward": "openBrowser"
+      "onAutoForward": "openBrowser",
+      "visibility": "private"
     },
     "6082": {
       "label": "Desktop Audio",

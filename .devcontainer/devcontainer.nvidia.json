@@ -1,0 +1,38 @@
+{
+  "name": "VUS (NVIDIA GPU)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "runArgs": [
+    "--shm-size=2g",
+    "--cap-add=SYS_ADMIN",
+    "--security-opt=seccomp=unconfined",
+    "--security-opt=apparmor=unconfined",
+    "--gpus=all"
+  ],
+  "containerEnv": {
+    "DISPLAY": ":1",
+    "NVIDIA_VISIBLE_DEVICES": "all",
+    "NVIDIA_DRIVER_CAPABILITIES": "all"
+  },
+  "forwardPorts": [6080, 6082, 8080],
+  "postStartCommand": "bash .devcontainer/start-vnc.sh",
+  "portsAttributes": {
+    "6080": {
+      "label": "Desktop (noVNC)",
+      "onAutoForward": "openBrowser",
+      "visibility": "private"
+    },
+    "6082": {
+      "label": "Desktop Audio",
+      "onAutoForward": "notify",
+      "visibility": "private"
+    },
+    "8080": {
+      "label": "iPad File Transfer",
+      "onAutoForward": "notify",
+      "visibility": "private"
+    }
+  }
+}
